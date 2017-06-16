@@ -15,7 +15,7 @@ object TwitterMVP {
 
     val sc = SparkMLExtension.CreateContext.main(args)
     val sqlContext = new SQLContext(sc)
-    import sqlContext.implicits._
+    import sqlContext.implicits._ // gives me toDF()
 
     val tweets = sc.textFile("file:///Users/conor/dsci6009/Tweets/conor-twitterdata-1-2017-04-12-18-01-25-35b3cf72-d1d3-4462-a67a-dde73bea8c74")
       .map(getTweetsAndLang)
@@ -43,21 +43,24 @@ object TwitterMVP {
 
     val predictions = model.transform(testData)
 
-    predictions.show()
+//    predictions.show() // Column names are [_1, _2, words, rawFeatures, features, rawPrediction, probability, prediction]
 
     val evaluator = new BinaryClassificationEvaluator()
       .setLabelCol("_2")
       .setRawPredictionCol("probability")
       .setMetricName("areaUnderROC")
     val accuracy = evaluator.evaluate(predictions)
-    println("Test Error = " + (1.0 - accuracy)) // Current error .2734
+    println("Area under the ROC curve = " + accuracy) // Current error .2734
 
   }
 
   def findVal(str: String, ToFind: String): String = {
+    try {
     JSON.parseFull(str) match {
       case Some(m: Map[String, String]) => m(ToFind)
-    }
+    } } catch {
+        case e: Exception => null
+      }
   }
 
 

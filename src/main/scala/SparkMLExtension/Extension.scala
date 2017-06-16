@@ -2,17 +2,18 @@ package SparkMLExtension
 
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.param.ParamMap
-import org.apache.spark.sql.types.{StructType, StructField}
-import org.apache.spark.sql.{DataFrame, Dataset}
-import org.apache.spark.sql.types.{StringType, IntegerType}
-import org.apache.spark.sql.functions.{udf, col}
+import org.apache.spark.sql.types.{StructField, StructType}
+import org.apache.spark.sql.{DataFrame, Dataset, SQLContext}
+import org.apache.spark.sql.types.{IntegerType, StringType}
+import org.apache.spark.sql.functions.{col, udf}
 import org.apache.spark.ml.util.Identifiable
+import SparkMLExtension.TwitterMVP.findVal
 
 
-class HardCodedWordCountStage(override val uid: String) extends Transformer {
+class TweetParser(override val uid: String) extends Transformer {
   def this() = this(Identifiable.randomUID("hardcodedwordcount"))
 
-  def copy(extra: ParamMap): HardCodedWordCountStage = {
+  def copy(extra: ParamMap): TweetParser = {
     defaultCopy(extra)
   }
   //end::basicPipelineSetup[]
@@ -20,22 +21,26 @@ class HardCodedWordCountStage(override val uid: String) extends Transformer {
   //tag::basicTransformSchema[]
   override def transformSchema(schema: StructType): StructType = {
     // Check that the input type is a string
-    val idx = schema.fieldIndex("happy_pandas")
+    val idx = schema.fieldIndex("value")
     val field = schema.fields(idx)
     if (field.dataType != StringType) {
       throw new Exception(
         s"Input type ${field.dataType} did not match input type StringType")
     }
     // Add the return field
-    schema.add(StructField("happy_panda_counts", IntegerType, false))
+    schema.add(StructField("tweet", StringType, true))
+        .add(StructField("lang", StringType, true))
   }
   //end::basicTransformSchema[]
 
   //tag::transformFunction[]
   def transform(df: Dataset[_]): DataFrame = {
-    val wordcount = udf { in: String => in.split(" ").size }
+    val tweet = udf { in: String => findVal(in, "text") }
+    val lang = udf { in: String => findVal(in, "lang")}
     df.select(col("*"),
-      wordcount(df.col("happy_pandas")).as("happy_panda_counts"))
+        tweet(df.col("value")).as("tweet"),
+        lang(df.col("value")).as("lang"))
+      .filter("tweet is not null")
   }
   //end::transformFunction[]
 }
@@ -43,8 +48,12 @@ class HardCodedWordCountStage(override val uid: String) extends Transformer {
 object Extension {
   def main(args: Array[String]) {
       val sc = SparkMLExtension.CreateContext.main(args)
+      val sqlContext = new SQLContext(sc)
+      import sqlContext.implicits._ // gives me toDF()
+      val tweets = sc.textFile("file:///Users/conor/dsci6009/Tweets/conor-twitterdata-1-2017-04-12-18-01-25-35b3cf72-d1d3-4462-a67a-dde73bea8c74")
 
-      val adding = sc.parallelize(1 to 100).sum
-      println("Success!  Returned: " + adding)
+      val transformer = new TweetParser()
+      tweets.toDF().show()
+      transformer.transform(tweets.toDF()).show()
   }
 }
