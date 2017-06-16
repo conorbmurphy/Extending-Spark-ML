@@ -36,3 +36,18 @@ def findVal(str: String, ToFind: String): String = {
 (findVal(x, "text"), findVal(x, "lang"))
 
 
+
+def getTweetsAndLang(input: String): (String, Int) = {
+  try {
+    var result = (findVal(input, "text"), -1)
+
+    if (findVal(input, "lang") == "en") result.copy(_2 = 0)
+    else if (findVal(input, "lang") == "es") result.copy(_2 = 1)
+    else result
+  } catch {
+    case e: Exception => ("unknown", -1)
+  }
+}
+
+getTweetsAndLang(x)
+
