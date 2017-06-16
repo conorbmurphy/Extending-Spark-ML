@@ -1,11 +1,12 @@
 package SparkMLExtension
 
-//import org.apache.spark.sql.{DataFrame, Row, SQLContext}
-//import org.apache.spark.rdd
-//import org.apache.spark.sql.types._
-
 import org.apache.spark.sql.SQLContext
+import org.apache.spark.ml.feature.{RegexTokenizer, HashingTF, IDF}
+import org.apache.spark.ml.Pipeline
+import org.apache.spark.ml.classification.RandomForestClassifier
 import scala.util.parsing.json._
+
+//This creates a basic ML model using twitter data
 
 object TwitterMVP {
 
@@ -18,7 +19,24 @@ object TwitterMVP {
     val tweets = sc.textFile("file:///Users/conor/dsci6009/Tweets/conor-twitterdata-1-2017-04-12-18-01-25-35b3cf72-d1d3-4462-a67a-dde73bea8c74")
       .map(getTweetsAndLang)
       .filter(x => x._2 != -1)
-      .toDF().show()
+      .toDF()
+
+    val regexTokenizer = new RegexTokenizer()
+      .setInputCol("_1")
+      .setOutputCol("words")
+      .setPattern("\\W")
+    val hashingTF = new HashingTF()
+      .setInputCol("words").setOutputCol("rawFeatures").setNumFeatures(20) // TODO: change num features if you scale
+    val idf = new IDF().setInputCol("rawFeatures").setOutputCol("features")
+    val rf = new RandomForestClassifier()
+      .setLabelCol("_2")
+      .setFeaturesCol("features")
+      .setNumTrees(10) // TODO: change num trees if you scale
+
+    val pipeline = new Pipeline()
+      .setStages(Array(regexTokenizer, hashingTF, idf, rf))
+
+    val model = pipeline.fit(tweets)
 
   }
 
