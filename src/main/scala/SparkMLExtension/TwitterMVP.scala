@@ -1,6 +1,7 @@
 package SparkMLExtension
 
 import org.apache.spark.sql.SQLContext
+import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
 import org.apache.spark.ml.feature.{RegexTokenizer, HashingTF, IDF}
 import org.apache.spark.ml.Pipeline
 import org.apache.spark.ml.classification.RandomForestClassifier
@@ -21,6 +22,8 @@ object TwitterMVP {
       .filter(x => x._2 != -1)
       .toDF()
 
+    val Array(trainingData, testData) = tweets.randomSplit(Array(0.7, 0.3))
+
     val regexTokenizer = new RegexTokenizer()
       .setInputCol("_1")
       .setOutputCol("words")
@@ -36,7 +39,18 @@ object TwitterMVP {
     val pipeline = new Pipeline()
       .setStages(Array(regexTokenizer, hashingTF, idf, rf))
 
-    val model = pipeline.fit(tweets)
+    val model = pipeline.fit(trainingData)
+
+    val predictions = model.transform(testData)
+
+    predictions.show()
+
+    val evaluator = new BinaryClassificationEvaluator()
+      .setLabelCol("_2")
+      .setRawPredictionCol("probability")
+      .setMetricName("areaUnderROC")
+    val accuracy = evaluator.evaluate(predictions)
+    println("Test Error = " + (1.0 - accuracy)) // Current error .2734
 
   }
 
