@@ -22,6 +22,8 @@ object TwitterMVP {
       .filter(x => x._2 != -1)
       .toDF()
 
+    tweets.show()
+
     val Array(trainingData, testData) = tweets.randomSplit(Array(0.7, 0.3))
 
     val regexTokenizer = new RegexTokenizer()
@@ -50,7 +52,7 @@ object TwitterMVP {
       .setRawPredictionCol("probability")
       .setMetricName("areaUnderROC")
     val accuracy = evaluator.evaluate(predictions)
-    println("Area under the ROC curve = " + accuracy) // Current error .2734
+    println("Area under the ROC curve = " + accuracy) // Current error on one file is .2734
 
   }
 
@@ -58,7 +60,8 @@ object TwitterMVP {
     try {
     JSON.parseFull(str) match {
       case Some(m: Map[String, String]) => m(ToFind)
-    } } catch {
+      }
+    } catch {
         case e: Exception => null
       }
   }
