@@ -4,7 +4,7 @@ import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.sql.types.{StructField, StructType}
 import org.apache.spark.sql.{DataFrame, Dataset, SQLContext}
-import org.apache.spark.sql.types.{IntegerType, StringType}
+import org.apache.spark.sql.types.StringType
 import org.apache.spark.sql.functions.{col, udf}
 import org.apache.spark.ml.util.Identifiable
 import SparkMLExtension.TwitterMVP.findVal
@@ -48,6 +48,6 @@ object Extension {
       val tweets = sqlContext.read.textFile("file:///Users/conor/dsci6009/Tweets/conor-twitterdata-1-2017-04-12-18-01-25-35b3cf72-d1d3-4462-a67a-dde73bea8c74")
 
       val transformer = new TweetParser()
-      transformer.transform(tweets.toDF()).show()
+      transformer.transform(tweets).show()
   }
 }
