@@ -9,7 +9,6 @@ import org.apache.spark.sql.functions.{col, udf}
 import org.apache.spark.ml.util.Identifiable
 import SparkMLExtension.TwitterMVP.findVal
 
-
 class TweetParser(override val uid: String) extends Transformer {
   def this() = this(Identifiable.randomUID("TweetParser"))
 
@@ -33,16 +32,19 @@ class TweetParser(override val uid: String) extends Transformer {
   def transform(df: Dataset[_]): DataFrame = { // Where the magic happens!
     val tweet = udf { in: String => findVal(in, "text") }
     val lang = udf { in: String => findVal(in, "lang")}
-    df.select(col("*"),
+    val df2 = df.select(col("*"),
         tweet(df.col("value")).as("tweet"),
         lang(df.col("value")).as("lang"))
       .filter("tweet is not null")
+    df2.filter(df2.col("lang") === "en" || df2.col("lang") === "es") // TODO: replace this with params
   }
 }
 
 object Extension {
   def main(args: Array[String]) {
       val sc = SparkMLExtension.CreateContext.main(args)
+      sc.setLogLevel("ERROR")
+
       val sqlContext = new SQLContext(sc)
 
       val tweets = sqlContext.read.textFile("file:///Users/conor/dsci6009/Tweets/conor-twitterdata-1-2017-04-12-18-01-25-35b3cf72-d1d3-4462-a67a-dde73bea8c74")

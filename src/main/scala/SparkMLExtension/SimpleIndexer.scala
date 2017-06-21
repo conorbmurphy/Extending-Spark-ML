@@ -6,18 +6,28 @@ import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.sql.{DataFrame, Dataset, SQLContext}
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.functions.{col, udf}
-import SparkMLExtension.TweetParser
 import org.apache.spark.ml.Pipeline
-import org.apache.spark.ml.feature.StringIndexer
 
 
 trait SimpleIndexerParams extends Params {
   final val inputCol = new Param[String](this, "inputCol", "The input column")
   final val outputCol = new Param[String](this, "outputCol", "The output column")
 
-//  setDefault(inputCol, Array[String]())
+  /*
+   * Note the next two lines.  It's currently unclear to my why these lines are
+   * needed.  Without them, `fit` works just find.  `transform`, however,
+   * does not as it fails to find these columns.  This is a hard-coded version
+   * See our issue here for details:
+   * https://github.com/high-performance-spark/high-performance-spark-examples/issues/89
+   * UPDATE: we solved this with PR:
+   * https://github.com/high-performance-spark/high-performance-spark-examples/pull/90
+  */
 
-//  final def getIsInList: Array[String] = $(isInList)
+//  setDefault(inputCol, "lang") // Hard codes defaults (no longer needed)
+//  setDefault(outputCol, "categoryIndex") // Hard codes defaults (no longer needed)
+
+//  final def getInputCol: String = $(inputCol)
+//  final def getOutputCol: String = $(outputCol)
 }
 
 class SimpleIndexer(override val uid: String)
@@ -41,7 +51,6 @@ class SimpleIndexer(override val uid: String)
       throw new Exception(
         s"Input type ${field.dataType} did not match input type StringType")
     }
-    // Add the return field
     schema.add(StructField($(outputCol), IntegerType, false))
   }
 
@@ -49,7 +58,10 @@ class SimpleIndexer(override val uid: String)
     import dataset.sparkSession.implicits._
     val words = dataset.select(dataset($(inputCol)).as[String]).distinct
       .collect()
-    new SimpleIndexerModel(uid, words)
+    val model = new SimpleIndexerModel(uid, words)
+    model.set(inputCol, $(inputCol))
+    model.set(outputCol, $(outputCol))
+    model
   }
 }
 
@@ -71,7 +83,6 @@ class SimpleIndexerModel(override val uid: String, words: Array[String])
       throw new Exception(
         s"Input type ${field.dataType} did not match input type StringType")
     }
-    // Add the return field
     schema.add(StructField($(outputCol), IntegerType, false))
   }
 
@@ -81,40 +92,23 @@ class SimpleIndexerModel(override val uid: String, words: Array[String])
       indexer(dataset($(inputCol)).cast(StringType)).as($(outputCol)))
   }
 }
-//end::SimpleIndexer[]
+
 
 object Runner {
   def main(args: Array[String]) {
     val sc = SparkMLExtension.CreateContext.main(args)
+    sc.setLogLevel("ERROR")
     val sqlContext = new SQLContext(sc)
 
     val tweets = sqlContext.read.textFile("file:///Users/conor/dsci6009/Tweets/conor-twitterdata-1-2017-04-12-18-01-25-35b3cf72-d1d3-4462-a67a-dde73bea8c74")
-//    val Array(trainingData, testData) = tweets.randomSplit(Array(0.7, 0.3))
-
-//    val transformer = new TweetParser()
-//    val indexer = new StringIndexer()
-//      .setInputCol("lang")
-//      .setOutputCol("index")
-
-
-
-    val df = sqlContext.createDataFrame(
-      Seq((0, "a"), (1, "b"), (2, "c"), (3, "a"), (4, "a"), (5, "c"))
-    ).toDF("id", "inputCol")
-
+    val transformer = new TweetParser()
     val indexer = new SimpleIndexer()
-      .setInputCol("inputCol")
+      .setInputCol("lang")
       .setOutputCol("categoryIndex")
 
-    val indexed = indexer.fit(df).transform(df.select("inputCol")) // TODO: this fails
-//    indexed.show()
-
-
-
-//    val pipeline = new Pipeline()
-//      .setStages(Array(transformer, indexer))
-
-//    pipeline.fit(tweets).transform(tweets).show()
+    val pipeline = new Pipeline()
+      .setStages(Array(transformer, indexer))
+    pipeline.fit(tweets).transform(tweets).show()
 
   }
 }
